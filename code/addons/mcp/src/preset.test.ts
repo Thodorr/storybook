@@ -407,72 +407,84 @@ describe('experimental_devServer', () => {
     expect(html).not.toMatch(/\{\{[A-Z_]+\}\}/);
   });
 
-  it('marks stories-preview disabled whenever review-create is available', async () => {
-    const render = async ({
-      reviewEnabled,
-      reviewEnabledForCli,
-    }: {
-      reviewEnabled: boolean;
-      reviewEnabledForCli: boolean;
-    }) => {
-      vi.mocked(getToolAvailability).mockResolvedValueOnce({
-        moduleGraphSupported: true,
-        changeDetectionEnabled: true,
-        reviewEnabled,
-        reviewEnabledForCli,
-        docsEnabled: false,
-        docsEnabledForCli: false,
-        docsHasManifests: false,
-        docsFeatureEnabled: false,
-        testSupported: false,
-        a11yEnabled: false,
-        docgenServer: false,
-      });
+  describe('stories-preview availability', () => {
+    let availability: Awaited<ReturnType<typeof getToolAvailability>>;
+    let getHandler: any;
 
-      let getHandler: any;
+    beforeEach(() => {
+      vi.mocked(getToolAvailability).mockImplementation(async () => availability);
+
       mockApp.get = vi.fn((_path, handler) => {
         getHandler = handler;
       });
-
-      await (experimental_devServer as any)(mockApp, mockOptions);
-
-      const mockRes = { writeHead: vi.fn(), end: vi.fn() } as any;
-      await getHandler({ headers: { accept: 'text/html' } } as any, mockRes);
-
-      return mockRes.end.mock.calls[0][0] as string;
-    };
-
-    const badgeFor = (html: string, tool: string) =>
-      html.match(
-        new RegExp(`<code>${tool}</code>\\s*<span class="toolset-status (enabled|disabled)"`)
-      )?.[1];
-
-    const withDirectReview = await render({
-      reviewEnabled: true,
-      reviewEnabledForCli: true,
     });
 
-    expect(badgeFor(withDirectReview, 'stories-preview')).toBe('disabled');
-    expect(badgeFor(withDirectReview, 'review-create')).toBe('enabled');
-    expect(withDirectReview).toContain(
-      '<code>stories-preview</code> is suppressed while <code>review-create</code> is available.'
-    );
-
-    const withCliReview = await render({
-      reviewEnabled: false,
-      reviewEnabledForCli: true,
+    afterEach(() => {
+      vi.mocked(getToolAvailability).mockReset();
     });
 
-    expect(badgeFor(withCliReview, 'stories-preview')).toBe('disabled');
-    expect(badgeFor(withCliReview, 'review-create')).toBe('enabled');
+    it('marks stories-preview disabled whenever review-create is available', async () => {
+      const render = async ({
+        reviewEnabled,
+        reviewEnabledForCli,
+      }: {
+        reviewEnabled: boolean;
+        reviewEnabledForCli: boolean;
+      }) => {
+        availability = {
+          moduleGraphSupported: true,
+          changeDetectionEnabled: true,
+          reviewEnabled,
+          reviewEnabledForCli,
+          docsEnabled: false,
+          docsEnabledForCli: false,
+          docsHasManifests: false,
+          docsFeatureEnabled: false,
+          testSupported: false,
+          a11yEnabled: false,
+          docgenServer: false,
+        };
 
-    const withoutReview = await render({
-      reviewEnabled: false,
-      reviewEnabledForCli: false,
+        await (experimental_devServer as any)(mockApp, mockOptions);
+
+        const mockRes = { writeHead: vi.fn(), end: vi.fn() } as any;
+        await getHandler({ headers: { accept: 'text/html' } } as any, mockRes);
+
+        return mockRes.end.mock.calls[0][0] as string;
+      };
+
+      const badgeFor = (html: string, tool: string) =>
+        html.match(
+          new RegExp(`<code>${tool}</code>\\s*<span class="toolset-status (enabled|disabled)"`)
+        )?.[1];
+
+      const withDirectReview = await render({
+        reviewEnabled: true,
+        reviewEnabledForCli: true,
+      });
+
+      expect(badgeFor(withDirectReview, 'stories-preview')).toBe('disabled');
+      expect(badgeFor(withDirectReview, 'review-create')).toBe('enabled');
+      expect(withDirectReview).toContain(
+        '<code>stories-preview</code> is suppressed while <code>review-create</code> is available.'
+      );
+
+      const withCliReview = await render({
+        reviewEnabled: false,
+        reviewEnabledForCli: true,
+      });
+
+      expect(badgeFor(withCliReview, 'stories-preview')).toBe('disabled');
+      expect(badgeFor(withCliReview, 'review-create')).toBe('enabled');
+
+      const withoutReview = await render({
+        reviewEnabled: false,
+        reviewEnabledForCli: false,
+      });
+
+      expect(badgeFor(withoutReview, 'stories-preview')).toBe('enabled');
+      expect(badgeFor(withoutReview, 'review-create')).toBe('disabled');
     });
-
-    expect(badgeFor(withoutReview, 'stories-preview')).toBe('enabled');
-    expect(badgeFor(withoutReview, 'review-create')).toBe('disabled');
   });
 
   it('names the missing manifest prerequisite instead of claiming the framework is unsupported', async () => {
