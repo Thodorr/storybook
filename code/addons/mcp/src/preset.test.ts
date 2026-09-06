@@ -476,6 +476,9 @@ describe('experimental_devServer', () => {
 
       expect(badgeFor(withCliReview, 'stories-preview')).toBe('disabled');
       expect(badgeFor(withCliReview, 'review-create')).toBe('enabled');
+      expect(withCliReview).toContain(
+        '<code>stories-preview</code> is suppressed while <code>review-create</code> is available.'
+      );
 
       const withoutReview = await render({
         reviewEnabled: false,
